@@ -6,7 +6,7 @@ class ProductRepository {
   // ANDROID EMULATOR: Use 'http://10.0.2.2:8000'
   // iOS SIMULATOR: Use 'http://127.0.0.1:8000'
   // PHYSICAL DEVICE: Use your PC's LAN IP (e.g., 'http://192.168.1.5:8000')
-  static const String baseUrl = 'http://192.168.1.28:8000';
+  static const String baseUrl = 'http://192.168.31.164:8000';
 
   // Connection timeout duration (10 seconds)
   static const Duration timeoutDuration = Duration(seconds: 10);

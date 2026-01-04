@@ -1,7 +1,7 @@
 from sqlmodel import SQLModel, create_engine, Session
 
 # Import models to ensure they're registered with SQLModel metadata
-from app.models import product, category
+from app.models import product, category, user, cart_item
 
 # 1. The Connection String
 # For now, we use a simple SQLite file named "almirah.db"

@@ -6,7 +6,7 @@ class CategoryRepository {
   // ANDROID EMULATOR: Use 'http://10.0.2.2:8000'
   // iOS SIMULATOR: Use 'http://127.0.0.1:8000'
   // PHYSICAL DEVICE: Use your PC's LAN IP (e.g., 'http://192.168.1.5:8000')
-  static const String baseUrl = 'http://192.168.1.28:8000';
+  static const String baseUrl = 'http://192.168.31.164:8000';
 
   // Connection timeout duration (10 seconds)
   static const Duration timeoutDuration = Duration(seconds: 10);
@@ -50,10 +50,11 @@ class CategoryRepository {
       print("❌ Network error: $e");
       final errorMessage = e.toString();
       String troubleshooting = '';
-      
-      if (errorMessage.contains('Connection closed') || 
+
+      if (errorMessage.contains('Connection closed') ||
           errorMessage.contains('Connection refused')) {
-        troubleshooting = '''
+        troubleshooting =
+            '''
 ⚠️ Connection Error: Server may not be running or unreachable
 
 Troubleshooting steps:
@@ -81,7 +82,8 @@ Troubleshooting steps:
    - Check antivirus isn't blocking the connection
 ''';
       } else {
-        troubleshooting = '''
+        troubleshooting =
+            '''
 Cannot connect to server at $baseUrl
 
 Troubleshooting steps:
@@ -92,7 +94,7 @@ Troubleshooting steps:
 5. Check Windows Firewall settings for port 8000
 ''';
       }
-      
+
       throw Exception('$troubleshooting\nOriginal error: $e');
     } catch (e) {
       print("❌ FATAL ERROR FETCHING DATA: $e");

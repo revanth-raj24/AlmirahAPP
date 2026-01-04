@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../data/repositories/cart_repository.dart';
+import '../../data/models/cart_item.dart';
 
 class BagScreen extends StatefulWidget {
   const BagScreen({super.key});
@@ -9,84 +11,110 @@ class BagScreen extends StatefulWidget {
 }
 
 class _BagScreenState extends State<BagScreen> {
-  // Dummy cart items data
-  List<Map<String, dynamic>> _cartItems = [
-    {
-      'id': 1,
-      'name': 'Classic White T-Shirt',
-      'brand': 'H&M',
-      'imageUrl': 'https://via.placeholder.com/150',
-      'price': 29.99,
-      'mrp': 39.99,
-      'quantity': 2,
-    },
-    {
-      'id': 2,
-      'name': 'Slim Fit Jeans',
-      'brand': 'Levi\'s',
-      'imageUrl': 'https://via.placeholder.com/150',
-      'price': 79.99,
-      'mrp': 99.99,
-      'quantity': 1,
-    },
-    {
-      'id': 3,
-      'name': 'Running Shoes',
-      'brand': 'Nike',
-      'imageUrl': 'https://via.placeholder.com/150',
-      'price': 119.99,
-      'mrp': 149.99,
-      'quantity': 1,
-    },
-  ];
+  final CartRepository _cartRepository = CartRepository();
+  
+  // TODO: Replace with actual user ID from authentication
+  // For now, using a default user ID of 1
+  static const int _defaultUserId = 1;
+  
+  BagDetails? _bagDetails;
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  // Toggle between empty and active state
-  bool _isEmpty = false; // Set to true to see empty state
-
-  double _calculateTotal() {
-    if (_isEmpty) return 0.0;
-    double subtotal = 0.0;
-    for (var item in _cartItems) {
-      subtotal += (item['price'] as double) * (item['quantity'] as int);
-    }
-    return subtotal;
+  @override
+  void initState() {
+    super.initState();
+    _loadBagDetails();
   }
 
-  double _calculateMRP() {
-    if (_isEmpty) return 0.0;
-    double mrp = 0.0;
-    for (var item in _cartItems) {
-      mrp += (item['mrp'] as double) * (item['quantity'] as int);
-    }
-    return mrp;
-  }
-
-  double _calculateDiscount() {
-    return _calculateMRP() - _calculateTotal();
-  }
-
-  void _updateQuantity(int itemId, int change) {
+  Future<void> _loadBagDetails() async {
     setState(() {
-      final item = _cartItems.firstWhere((item) => item['id'] == itemId);
-      final newQuantity = (item['quantity'] as int) + change;
-      if (newQuantity > 0) {
-        item['quantity'] = newQuantity;
-      } else {
-        _cartItems.removeWhere((item) => item['id'] == itemId);
-        if (_cartItems.isEmpty) {
-          _isEmpty = true;
-        }
-      }
+      _isLoading = true;
+      _errorMessage = null;
     });
+
+    try {
+      final bagDetails = await _cartRepository.getBagDetails(userId: _defaultUserId);
+      setState(() {
+        _bagDetails = bagDetails;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
   }
 
-  void _removeItem(int itemId) {
-    setState(() {
-      _cartItems.removeWhere((item) => item['id'] == itemId);
-      if (_cartItems.isEmpty) {
-        _isEmpty = true;
+  Future<void> _updateQuantity(int cartItemId, int change) async {
+    final currentItem = _bagDetails?.items.firstWhere(
+      (item) => item.id == cartItemId,
+    );
+    
+    if (currentItem == null) return;
+
+    final newQuantity = currentItem.quantity + change;
+    
+    if (newQuantity <= 0) {
+      // Remove item if quantity becomes 0 or less
+      await _removeItem(cartItemId);
+      return;
+    }
+
+    try {
+      await _cartRepository.updateQuantity(
+        cartItemId: cartItemId,
+        userId: _defaultUserId,
+        quantity: newQuantity,
+      );
+      
+      // Reload bag details to get updated totals
+      await _loadBagDetails();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update quantity: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
-    });
+    }
+  }
+
+  Future<void> _removeItem(int cartItemId) async {
+    try {
+      await _cartRepository.removeFromBag(
+        cartItemId: cartItemId,
+        userId: _defaultUserId,
+      );
+      
+      // Reload bag details
+      await _loadBagDetails();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Item removed from bag'),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to remove item: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  bool get _isEmpty {
+    return _bagDetails == null || _bagDetails!.items.isEmpty;
   }
 
   @override
@@ -104,14 +132,79 @@ class _BagScreenState extends State<BagScreen> {
         backgroundColor: AppColors.background,
         elevation: 0,
         centerTitle: false,
+        actions: [
+          if (!_isLoading && !_isEmpty)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loadBagDetails,
+              tooltip: 'Refresh',
+            ),
+        ],
       ),
-      body: _isEmpty
-          ? _buildEmptyState()
-          : _buildActiveState(),
-      bottomNavigationBar: _isEmpty
+      body: _buildBody(),
+      bottomNavigationBar: _isEmpty || _isLoading
           ? null
           : _buildBottomBar(),
     );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.error_outline,
+                size: 64,
+                color: Colors.red,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Error loading bag',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _errorMessage!,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _loadBagDetails,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_isEmpty) {
+      return _buildEmptyState();
+    }
+
+    return _buildActiveState();
   }
 
   Widget _buildEmptyState() {
@@ -155,7 +248,6 @@ class _BagScreenState extends State<BagScreen> {
             const SizedBox(height: 32),
             ElevatedButton(
               onPressed: () {
-                // Navigate to home or categories
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
@@ -185,19 +277,20 @@ class _BagScreenState extends State<BagScreen> {
   }
 
   Widget _buildActiveState() {
+    if (_bagDetails == null) return const SizedBox.shrink();
+
     return Column(
       children: [
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: _cartItems.length,
+            itemCount: _bagDetails!.items.length,
             itemBuilder: (context, index) {
-              final item = _cartItems[index];
+              final item = _bagDetails!.items[index];
               return _CartItemCard(
                 item: item,
-                onQuantityChange: (change) =>
-                    _updateQuantity(item['id'] as int, change),
-                onRemove: () => _removeItem(item['id'] as int),
+                onQuantityChange: (change) => _updateQuantity(item.id, change),
+                onRemove: () => _removeItem(item.id),
               );
             },
           ),
@@ -209,10 +302,12 @@ class _BagScreenState extends State<BagScreen> {
   }
 
   Widget _buildPriceDetails() {
-    final mrp = _calculateMRP();
-    final discount = _calculateDiscount();
-    final deliveryFee = 0.0; // Free delivery
-    final total = _calculateTotal() + deliveryFee;
+    if (_bagDetails == null) return const SizedBox.shrink();
+
+    final mrp = _bagDetails!.totalMrp;
+    final discount = _bagDetails!.totalDiscount;
+    final deliveryFee = _bagDetails!.deliveryFee;
+    final total = _bagDetails!.finalTotal;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -259,7 +354,9 @@ class _BagScreenState extends State<BagScreen> {
   }
 
   Widget _buildBottomBar() {
-    final total = _calculateTotal();
+    if (_bagDetails == null) return const SizedBox.shrink();
+
+    final total = _bagDetails!.finalTotal;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -306,7 +403,7 @@ class _BagScreenState extends State<BagScreen> {
 }
 
 class _CartItemCard extends StatelessWidget {
-  final Map<String, dynamic> item;
+  final CartItem item;
   final Function(int) onQuantityChange;
   final VoidCallback onRemove;
 
@@ -318,6 +415,10 @@ class _CartItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Calculate display price (use discount_price if available, else price)
+    final displayPrice = item.productDiscountPrice ?? item.productPrice;
+    final mrp = item.productPrice; // Original price is MRP if discount exists
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 1,
@@ -333,7 +434,7 @@ class _CartItemCard extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: Image.network(
-                item['imageUrl'] as String,
+                item.productImageUrl,
                 width: 80,
                 height: 80,
                 fit: BoxFit.cover,
@@ -352,7 +453,7 @@ class _CartItemCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    item['brand'] as String,
+                    item.productBrand,
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey[600],
@@ -361,7 +462,7 @@ class _CartItemCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    item['name'] as String,
+                    item.productName,
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -378,17 +479,17 @@ class _CartItemCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '\$${(item['price'] as double).toStringAsFixed(2)}',
+                            '\$${displayPrice.toStringAsFixed(2)}',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: AppColors.textPrimary,
                             ),
                           ),
-                          if (item['mrp'] != null &&
-                              (item['mrp'] as double) > (item['price'] as double))
+                          if (item.productDiscountPrice != null &&
+                              mrp > displayPrice)
                             Text(
-                              '\$${(item['mrp'] as double).toStringAsFixed(2)}',
+                              '\$${mrp.toStringAsFixed(2)}',
                               style: TextStyle(
                                 fontSize: 12,
                                 decoration: TextDecoration.lineThrough,
@@ -419,7 +520,7 @@ class _CartItemCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 12),
                           Text(
-                            '${item['quantity']}',
+                            '${item.quantity}',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -509,4 +610,3 @@ class _PriceRow extends StatelessWidget {
     );
   }
 }
-
