@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../models/product.dart';
+import '../models/category_model.dart';
 
-class ProductRepository {
+class CategoryRepository {
   // ANDROID EMULATOR: Use 'http://10.0.2.2:8000'
   // iOS SIMULATOR: Use 'http://127.0.0.1:8000'
   // PHYSICAL DEVICE: Use your PC's LAN IP (e.g., 'http://192.168.1.5:8000')
@@ -11,9 +11,9 @@ class ProductRepository {
   // Connection timeout duration (10 seconds)
   static const Duration timeoutDuration = Duration(seconds: 10);
 
-  Future<List<Product>> getProducts() async {
+  Future<List<Category>> getCategories() async {
     try {
-      final uri = Uri.parse('$baseUrl/products');
+      final uri = Uri.parse('$baseUrl/categories');
       print("🔗 Attempting to connect to: $uri");
 
       final response = await http
@@ -32,29 +32,28 @@ class ProductRepository {
           );
 
       if (response.statusCode == 200) {
-        print("✅ Successfully fetched products");
-        // Set the base URL in Product model so it can prepend server address to relative URLs
-        Product.baseUrl = baseUrl;
+        print("✅ Successfully fetched categories");
+        // Set the base URL in Category model so it can prepend server address to relative URLs
+        Category.baseUrl = baseUrl;
 
         List<dynamic> body = jsonDecode(response.body);
-        List<Product> products = body
-            .map((dynamic item) => Product.fromJson(item))
+        List<Category> categories = body
+            .map((dynamic item) => Category.fromJson(item))
             .toList();
-        return products;
+        return categories;
       } else {
         throw Exception(
-          'Failed to load products: ${response.statusCode} - ${response.body}',
+          'Failed to load categories: ${response.statusCode} - ${response.body}',
         );
       }
     } on http.ClientException catch (e) {
       print("❌ Network error: $e");
       final errorMessage = e.toString();
       String troubleshooting = '';
-
-      if (errorMessage.contains('Connection closed') ||
+      
+      if (errorMessage.contains('Connection closed') || 
           errorMessage.contains('Connection refused')) {
-        troubleshooting =
-            '''
+        troubleshooting = '''
 ⚠️ Connection Error: Server may not be running or unreachable
 
 Troubleshooting steps:
@@ -64,7 +63,7 @@ Troubleshooting steps:
 
 2. ✅ Test server in browser:
    Open http://$baseUrl/docs (Swagger UI)
-   Or http://$baseUrl/products (should return JSON)
+   Or http://$baseUrl/categories (should return JSON)
 
 3. ✅ Verify IP address:
    - Check your PC's IP: ipconfig (Windows) or ifconfig (Mac/Linux)
@@ -82,8 +81,7 @@ Troubleshooting steps:
    - Check antivirus isn't blocking the connection
 ''';
       } else {
-        troubleshooting =
-            '''
+        troubleshooting = '''
 Cannot connect to server at $baseUrl
 
 Troubleshooting steps:
@@ -94,7 +92,7 @@ Troubleshooting steps:
 5. Check Windows Firewall settings for port 8000
 ''';
       }
-
+      
       throw Exception('$troubleshooting\nOriginal error: $e');
     } catch (e) {
       print("❌ FATAL ERROR FETCHING DATA: $e");
@@ -102,3 +100,4 @@ Troubleshooting steps:
     }
   }
 }
+

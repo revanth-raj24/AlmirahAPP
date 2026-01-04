@@ -1,5 +1,8 @@
 from sqlmodel import SQLModel, create_engine, Session
 
+# Import models to ensure they're registered with SQLModel metadata
+from app.models import product, category
+
 # 1. The Connection String
 # For now, we use a simple SQLite file named "almirah.db"
 sqlite_file_name = "almirah.db"

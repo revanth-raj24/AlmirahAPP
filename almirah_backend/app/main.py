@@ -3,7 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.database import create_db_and_tables
-from app.routers import products # Import the router
+from app.routers import products, categories # Import the routers
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -31,9 +31,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register the router
+# Register the routers
 # prefix="/products" means all endpoints in that file will start with /products
 app.include_router(products.router, prefix="/products", tags=["Products"])
+app.include_router(categories.router, prefix="/categories", tags=["Categories"])
 
 @app.get("/")
 def read_root():

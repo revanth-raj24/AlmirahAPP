@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
+import 'categories_screen.dart';
+import 'bag_screen.dart';
+import 'profile_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -13,12 +16,11 @@ class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
   // 2. The List of "Pages" the shell can show
-  // We use "Center" text placeholders for pages we haven't built yet
   final List<Widget> _pages = [
-    const HomeScreen(),      // Index 0
-    const Center(child: Text("Categories Screen")), // Index 1
-    const Center(child: Text("Bag/Cart Screen")),   // Index 2
-    const Center(child: Text("Profile Screen")),    // Index 3
+    const HomeScreen(),        // Index 0
+    const CategoriesScreen(),  // Index 1
+    const BagScreen(),         // Index 2
+    const ProfileScreen(),     // Index 3
   ];
 
   @override
