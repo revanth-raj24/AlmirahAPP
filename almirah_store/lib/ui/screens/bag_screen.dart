@@ -1,121 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
-import '../../data/repositories/cart_repository.dart';
-import '../../data/models/cart_item.dart';
+import '../../logic/providers/cart_provider.dart';
 
-class BagScreen extends StatefulWidget {
+class BagScreen extends StatelessWidget {
   const BagScreen({super.key});
-
-  @override
-  State<BagScreen> createState() => _BagScreenState();
-}
-
-class _BagScreenState extends State<BagScreen> {
-  final CartRepository _cartRepository = CartRepository();
-  
-  // TODO: Replace with actual user ID from authentication
-  // For now, using a default user ID of 1
-  static const int _defaultUserId = 1;
-  
-  BagDetails? _bagDetails;
-  bool _isLoading = true;
-  String? _errorMessage;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadBagDetails();
-  }
-
-  Future<void> _loadBagDetails() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final bagDetails = await _cartRepository.getBagDetails(userId: _defaultUserId);
-      setState(() {
-        _bagDetails = bagDetails;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _updateQuantity(int cartItemId, int change) async {
-    final currentItem = _bagDetails?.items.firstWhere(
-      (item) => item.id == cartItemId,
-    );
-    
-    if (currentItem == null) return;
-
-    final newQuantity = currentItem.quantity + change;
-    
-    if (newQuantity <= 0) {
-      // Remove item if quantity becomes 0 or less
-      await _removeItem(cartItemId);
-      return;
-    }
-
-    try {
-      await _cartRepository.updateQuantity(
-        cartItemId: cartItemId,
-        userId: _defaultUserId,
-        quantity: newQuantity,
-      );
-      
-      // Reload bag details to get updated totals
-      await _loadBagDetails();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to update quantity: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _removeItem(int cartItemId) async {
-    try {
-      await _cartRepository.removeFromBag(
-        cartItemId: cartItemId,
-        userId: _defaultUserId,
-      );
-      
-      // Reload bag details
-      await _loadBagDetails();
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Item removed from bag'),
-            backgroundColor: AppColors.primary,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to remove item: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  bool get _isEmpty {
-    return _bagDetails == null || _bagDetails!.items.isEmpty;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -132,82 +21,98 @@ class _BagScreenState extends State<BagScreen> {
         backgroundColor: AppColors.background,
         elevation: 0,
         centerTitle: false,
-        actions: [
-          if (!_isLoading && !_isEmpty)
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _loadBagDetails,
-              tooltip: 'Refresh',
-            ),
-        ],
       ),
-      body: _buildBody(),
-      bottomNavigationBar: _isEmpty || _isLoading
-          ? null
-          : _buildBottomBar(),
-    );
-  }
+      body: Consumer<CartProvider>(
+        builder: (context, cartProvider, child) {
+          if (cartProvider.isEmpty) {
+            return _buildEmptyState(context);
+          }
 
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
-
-    if (_errorMessage != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          return Column(
             children: [
-              const Icon(
-                Icons.error_outline,
-                size: 64,
-                color: Colors.red,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Error loading bag',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: cartProvider.items.length,
+                  itemBuilder: (context, index) {
+                    final item = cartProvider.items[index];
+                    return _CartItemCard(
+                      item: item,
+                      onQuantityChange: (change) {
+                        if (change > 0) {
+                          cartProvider.incrementQuantity(item.product);
+                        } else {
+                          cartProvider.decrementQuantity(item.product);
+                        }
+                      },
+                      onRemove: () {
+                        cartProvider.removeFromCart(item.product);
+                      },
+                    );
+                  },
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                _errorMessage!,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
+              // Price Details Section
+              _buildPriceDetails(cartProvider),
+            ],
+          );
+        },
+      ),
+      bottomNavigationBar: Consumer<CartProvider>(
+        builder: (context, cartProvider, child) {
+          if (cartProvider.isEmpty) {
+            return const SizedBox.shrink();
+          }
+
+          return Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, -5),
                 ),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _loadBagDetails,
+              ],
+            ),
+            child: SafeArea(
+              child: ElevatedButton(
+                onPressed: () {
+                  // Placeholder for order placement
+                  print('Place order for \$${cartProvider.totalPrice.toStringAsFixed(2)}');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Order placed for \$${cartProvider.totalPrice.toStringAsFixed(2)}'),
+                      backgroundColor: AppColors.primary,
+                    ),
+                  );
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
                 ),
-                child: const Text('Retry'),
+                child: Text(
+                  'Place Order • \$${cartProvider.totalPrice.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (_isEmpty) {
-      return _buildEmptyState();
-    }
-
-    return _buildActiveState();
+            ),
+          );
+        },
+      ),
+    );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
@@ -276,38 +181,11 @@ class _BagScreenState extends State<BagScreen> {
     );
   }
 
-  Widget _buildActiveState() {
-    if (_bagDetails == null) return const SizedBox.shrink();
-
-    return Column(
-      children: [
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: _bagDetails!.items.length,
-            itemBuilder: (context, index) {
-              final item = _bagDetails!.items[index];
-              return _CartItemCard(
-                item: item,
-                onQuantityChange: (change) => _updateQuantity(item.id, change),
-                onRemove: () => _removeItem(item.id),
-              );
-            },
-          ),
-        ),
-        // Price Details Section
-        _buildPriceDetails(),
-      ],
-    );
-  }
-
-  Widget _buildPriceDetails() {
-    if (_bagDetails == null) return const SizedBox.shrink();
-
-    final mrp = _bagDetails!.totalMrp;
-    final discount = _bagDetails!.totalDiscount;
-    final deliveryFee = _bagDetails!.deliveryFee;
-    final total = _bagDetails!.finalTotal;
+  Widget _buildPriceDetails(CartProvider cartProvider) {
+    final mrp = cartProvider.totalMrp;
+    final discount = cartProvider.totalDiscount;
+    final deliveryFee = 0.0; // Free delivery for now
+    final total = cartProvider.totalPrice + deliveryFee;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -331,12 +209,13 @@ class _BagScreenState extends State<BagScreen> {
           const SizedBox(height: 16),
           _PriceRow(label: 'MRP', amount: mrp),
           const SizedBox(height: 8),
-          _PriceRow(
-            label: 'Discount',
-            amount: -discount,
-            isDiscount: true,
-          ),
-          const SizedBox(height: 8),
+          if (discount > 0)
+            _PriceRow(
+              label: 'Discount',
+              amount: -discount,
+              isDiscount: true,
+            ),
+          if (discount > 0) const SizedBox(height: 8),
           _PriceRow(
             label: 'Delivery Fee',
             amount: deliveryFee,
@@ -352,58 +231,10 @@ class _BagScreenState extends State<BagScreen> {
       ),
     );
   }
-
-  Widget _buildBottomBar() {
-    if (_bagDetails == null) return const SizedBox.shrink();
-
-    final total = _bagDetails!.finalTotal;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: ElevatedButton(
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Order placed for \$${total.toStringAsFixed(2)}'),
-                backgroundColor: AppColors.primary,
-              ),
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            elevation: 0,
-          ),
-          child: Text(
-            'Place Order • \$${total.toStringAsFixed(2)}',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _CartItemCard extends StatelessWidget {
-  final CartItem item;
+  final LocalCartItem item;
   final Function(int) onQuantityChange;
   final VoidCallback onRemove;
 
@@ -415,9 +246,9 @@ class _CartItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Calculate display price (use discount_price if available, else price)
-    final displayPrice = item.productDiscountPrice ?? item.productPrice;
-    final mrp = item.productPrice; // Original price is MRP if discount exists
+    // Calculate display price (use discountPrice if available, else price)
+    final displayPrice = item.product.discountPrice ?? item.product.price;
+    final mrp = item.product.price; // Original price is MRP if discount exists
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -434,7 +265,7 @@ class _CartItemCard extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: Image.network(
-                item.productImageUrl,
+                item.product.imageUrl,
                 width: 80,
                 height: 80,
                 fit: BoxFit.cover,
@@ -453,7 +284,7 @@ class _CartItemCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    item.productBrand,
+                    item.product.brand.toUpperCase(),
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey[600],
@@ -462,7 +293,7 @@ class _CartItemCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    item.productName,
+                    item.product.name,
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -486,7 +317,7 @@ class _CartItemCard extends StatelessWidget {
                               color: AppColors.textPrimary,
                             ),
                           ),
-                          if (item.productDiscountPrice != null &&
+                          if (item.product.discountPrice != null &&
                               mrp > displayPrice)
                             Text(
                               '\$${mrp.toStringAsFixed(2)}',

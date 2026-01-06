@@ -1,25 +1,31 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
-import '../../data/models/category_model.dart';
-import '../../data/repositories/category_repository.dart';
-import 'product_listing_screen.dart';
+import '../../data/models/product.dart';
+import '../../data/repositories/product_repository.dart';
+import '../widgets/product_card.dart';
 
-class CategoriesScreen extends StatefulWidget {
-  const CategoriesScreen({super.key});
+class ProductListingScreen extends StatefulWidget {
+  final String categoryName;
+
+  const ProductListingScreen({
+    super.key,
+    required this.categoryName,
+  });
 
   @override
-  State<CategoriesScreen> createState() => _CategoriesScreenState();
+  State<ProductListingScreen> createState() => _ProductListingScreenState();
 }
 
-class _CategoriesScreenState extends State<CategoriesScreen> {
+class _ProductListingScreenState extends State<ProductListingScreen> {
   // Initialize Repository
-  final CategoryRepository _repository = CategoryRepository();
-  late Future<List<Category>> _categoriesFuture;
+  final ProductRepository _repository = ProductRepository();
+  late Future<List<Product>> _productsFuture;
 
   @override
   void initState() {
     super.initState();
-    _categoriesFuture = _repository.getCategories();
+    // Fetch products filtered by category
+    _productsFuture = _repository.getProducts(category: widget.categoryName);
   }
 
   @override
@@ -27,9 +33,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text(
-          'Categories',
-          style: TextStyle(
+        title: Text(
+          widget.categoryName,
+          style: const TextStyle(
             fontWeight: FontWeight.bold,
             color: AppColors.textPrimary,
           ),
@@ -38,8 +44,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         elevation: 0,
         centerTitle: false,
       ),
-      body: FutureBuilder<List<Category>>(
-        future: _categoriesFuture,
+      body: FutureBuilder<List<Product>>(
+        future: _productsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -57,7 +63,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Error loading categories',
+                      'Error loading products',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -77,7 +83,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     ElevatedButton(
                       onPressed: () {
                         setState(() {
-                          _categoriesFuture = _repository.getCategories();
+                          _productsFuture = _repository.getProducts(
+                            category: widget.categoryName,
+                          );
                         });
                       },
                       style: ElevatedButton.styleFrom(
@@ -96,13 +104,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.category_outlined,
+                    Icons.shopping_bag_outlined,
                     size: 64,
                     color: Colors.grey[400],
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'No categories found',
+                    'No products found',
                     style: TextStyle(
                       fontSize: 18,
                       color: Colors.grey[600],
@@ -110,7 +118,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Add categories via Swagger/Postman',
+                    'No products available in ${widget.categoryName}',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[500],
@@ -121,19 +129,19 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             );
           }
 
-          final categories = snapshot.data!;
+          final products = snapshot.data!;
           return GridView.builder(
             padding: const EdgeInsets.all(16),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: 0.85,
+              childAspectRatio: 0.7,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
             ),
-            itemCount: categories.length,
+            itemCount: products.length,
             itemBuilder: (context, index) {
-              final category = categories[index];
-              return _CategoryCard(category: category);
+              final product = products[index];
+              return ProductCard(product: product);
             },
           );
         },
@@ -142,83 +150,3 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 }
 
-class _CategoryCard extends StatelessWidget {
-  final Category category;
-
-  const _CategoryCard({
-    required this.category,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ProductListingScreen(
-              categoryName: category.name,
-            ),
-          ),
-        );
-      },
-      borderRadius: BorderRadius.circular(16),
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: Colors.white,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Category Image
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  category.imageUrl,
-                  width: 100,
-                  height: 100,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.image,
-                      size: 40,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Category Name
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: Text(
-                  category.name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

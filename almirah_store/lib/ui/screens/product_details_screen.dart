@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../data/models/product.dart';
+import '../../logic/providers/cart_provider.dart';
 
 class ProductDetailsScreen extends StatelessWidget {
   final Product product;
@@ -62,13 +64,15 @@ class ProductDetailsScreen extends StatelessWidget {
                   // Price Block
                   Row(
                     children: [
-                      Text("₹${product.price.toInt()}", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 10),
-                      Text("₹${product.originalPrice.toInt()}", 
-                          style: const TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey, fontSize: 16)),
-                      const SizedBox(width: 10),
-                      Text("${product.discountPercentage}% OFF", 
-                          style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text("₹${product.effectivePrice.toInt()}", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                      if (product.discountPrice != null) ...[
+                        const SizedBox(width: 10),
+                        Text("₹${product.originalPrice.toInt()}", 
+                            style: const TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey, fontSize: 16)),
+                        const SizedBox(width: 10),
+                        Text("${product.discountPercentage}% OFF", 
+                            style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 16)),
+                      ],
                     ],
                   ),
                   
@@ -80,9 +84,23 @@ class ProductDetailsScreen extends StatelessWidget {
                     height: 50,
                     child: ElevatedButton(
                       onPressed: () {
-                        // TODO: Implement Add to Cart Logic
+                        // Add product to cart using CartProvider
+                        context.read<CartProvider>().addToCart(product);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Added to Bag")),
+                          SnackBar(
+                            content: Text("${product.name} added to Bag"),
+                            duration: const Duration(seconds: 2),
+                            action: SnackBarAction(
+                              label: 'View Bag',
+                              textColor: Colors.white,
+                              onPressed: () {
+                                // Navigate to bag screen (index 2 in MainScreen)
+                                Navigator.of(context).popUntil((route) => route.isFirst);
+                                // Switch to bag tab - this would require accessing MainScreen state
+                                // For now, just show a message
+                              },
+                            ),
+                          ),
                         );
                       },
                       style: ElevatedButton.styleFrom(

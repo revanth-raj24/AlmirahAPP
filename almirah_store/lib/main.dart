@@ -1,5 +1,7 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'logic/providers/cart_provider.dart';
 import 'ui/screens/main_screen.dart'; // This connects your Home Screen
 
 void main() {
@@ -11,7 +13,11 @@ class AlmirahApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => CartProvider()),
+      ],
+      child: MaterialApp(
       title: 'Almirah Store',
       debugShowCheckedModeBanner: false, // Removes the red "Debug" banner
       // Theme: We use a white background and clean colors like Myntra
@@ -36,6 +42,7 @@ class AlmirahApp extends StatelessWidget {
 
       // The entry point of your UI
       home: const MainScreen(),
+      ),
     );
   }
 }

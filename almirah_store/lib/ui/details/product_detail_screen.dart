@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../data/models/product.dart'; // Ensure this matches your file name
+import '../../logic/providers/cart_provider.dart';
 
 class ProductDetailsScreen extends StatelessWidget {
   final Product product;
@@ -191,9 +193,14 @@ class ProductDetailsScreen extends StatelessWidget {
         ),
         child: ElevatedButton(
           onPressed: () {
-            // Placeholder for Cart Logic (Phase 4)
+            // Add product to cart using CartProvider
+            context.read<CartProvider>().addToCart(product);
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('${product.name} added to bag!')),
+              SnackBar(
+                content: Text('${product.name} added to bag!'),
+                backgroundColor: Colors.black,
+                behavior: SnackBarBehavior.floating,
+              ),
             );
           },
           style: ElevatedButton.styleFrom(

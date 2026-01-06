@@ -99,30 +99,32 @@ class ProductCard extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        "₹${product.price.toInt()}",
+                        "₹${product.effectivePrice.toInt()}",
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        "₹${product.originalPrice.toInt()}",
-                        style: const TextStyle(
-                          decoration: TextDecoration.lineThrough,
-                          color: Colors.grey,
-                          fontSize: 10,
+                      if (product.discountPrice != null) ...[
+                        const SizedBox(width: 4),
+                        Text(
+                          "₹${product.originalPrice.toInt()}",
+                          style: const TextStyle(
+                            decoration: TextDecoration.lineThrough,
+                            color: Colors.grey,
+                            fontSize: 10,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        "${product.discountPercentage}% OFF",
-                        style: const TextStyle(
-                          color: Colors.orange,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                        const SizedBox(width: 4),
+                        Text(
+                          "${product.discountPercentage}% OFF",
+                          style: const TextStyle(
+                            color: Colors.orange,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ],

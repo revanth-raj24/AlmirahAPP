@@ -24,6 +24,21 @@ class Product {
     this.rating = 0.0,
   });
 
+  // Computed properties for UI display
+  /// Original price (MRP) - always the base price
+  double get originalPrice => price;
+
+  /// Discount percentage (calculated from discountPrice if available)
+  int get discountPercentage {
+    if (discountPrice != null && discountPrice! < price) {
+      return ((price - discountPrice!) / price * 100).round();
+    }
+    return 0;
+  }
+
+  /// Effective price (discount price if available, otherwise regular price)
+  double get effectivePrice => discountPrice ?? price;
+
   factory Product.fromJson(Map<String, dynamic> json) {
     // Get the raw image URL from JSON
     String rawImageUrl = json['image_url'] ?? '';

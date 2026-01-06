@@ -11,9 +11,12 @@ class ProductRepository {
   // Connection timeout duration (10 seconds)
   static const Duration timeoutDuration = Duration(seconds: 10);
 
-  Future<List<Product>> getProducts() async {
+  Future<List<Product>> getProducts({String? category}) async {
     try {
-      final uri = Uri.parse('$baseUrl/products');
+      // Build URI with optional category query parameter
+      final uri = category != null
+          ? Uri.parse('$baseUrl/products?category=$category')
+          : Uri.parse('$baseUrl/products');
       print("🔗 Attempting to connect to: $uri");
 
       final response = await http

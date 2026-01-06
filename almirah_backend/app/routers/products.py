@@ -123,10 +123,21 @@ async def create_product_with_file(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating product: {str(e)}")
 
-# 2. READ: Get all products
+# 2. READ: Get all products (with optional category filter)
 @router.get("/", response_model=List[ProductPublic])
-def read_products(session: Session = Depends(get_session)):
-    products = session.exec(select(Product)).all()
+def read_products(
+    category: Optional[str] = None,
+    session: Session = Depends(get_session)
+):
+    """Get all products, optionally filtered by category name"""
+    if category:
+        # Filter products by category name
+        products = session.exec(
+            select(Product).where(Product.category == category)
+        ).all()
+    else:
+        # Return all products if no category filter
+        products = session.exec(select(Product)).all()
     return products
 
 # 3. DELETE: Delete a product by ID
